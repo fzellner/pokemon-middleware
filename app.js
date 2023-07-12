@@ -73,6 +73,7 @@ const fetchPokemonData = async (pokemonId) => {
   const about = speciesData.flavor_text_entries.filter(species => species.language.name === "en")
                                                 .map(species => species.flavor_text.replace(/(\r\n|\n|\r|\f)/gm,""))
                                                 .join("");
+  const types = pokemonData.types.map(t => t.type.name);
   const pokemonInfo = {
       id: pokemonData.id,
       name: pokemonData.name,
@@ -89,7 +90,9 @@ const fetchPokemonData = async (pokemonId) => {
       growthRate: speciesData.growth_rate.name,
       eggGroup: eggGroup,
       habitat: speciesData.habitat.name,
-      capture_rate: speciesData.capture_rate
+      capture_rate: speciesData.capture_rate,
+      types:types,
+      image: pokemonData.sprites.other['official-artwork'].front_default
   };
   return pokemonInfo;
 };
