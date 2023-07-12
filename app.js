@@ -117,6 +117,59 @@ app.get("/pokemon/:id", async (req, res, next) => {
 }) */
 
 
+function buildStatData(statsData){
+  var data = statsData.map( s => {
+     var x = {
+          'name': s.stat.name,
+          'base_value': s.base_stat
+      }
+      return x
+  })
+
+  return data
+}
+
+function buildWeaknessData(typeData){
+  var doubleDamageFrom = typeData.damage_relations.double_damage_from.map(t => {
+      var x = {
+          'name':t.name
+      }
+      return x
+  })
+
+  var halfDamageFrom = typeData.damage_relations.half_damage_from.map(t => {
+      var x = {
+          'name':t.name
+      }
+      return x
+  })
+
+
+  var doubleDamageTo = typeData.damage_relations.double_damage_to.map(t => {
+      var x = {
+          'name':t.name
+      }
+      return x
+  })
+
+  var halfDamageTo = typeData.damage_relations.half_damage_to.map(t => {
+      var x = {
+          'name':t.name
+      }
+      return x
+  })
+
+
+  var data = {
+      'double_damage_from': doubleDamageFrom,
+      'half_damage_from': halfDamageFrom,
+      'double_damage_to': doubleDamageTo,
+      'half_damage_to': halfDamageTo
+  }
+
+  return data
+}
+
 app.listen(process.env.PORT || 3000)
 
 Array.prototype.unique = function() {
