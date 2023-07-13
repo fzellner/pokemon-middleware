@@ -70,9 +70,8 @@ const fetchPokemonData = async (pokemonId) => {
   const stats = buildStatData(pokemonData.stats);
   const weakness = buildWeaknessData(typeData);
   const eggGroup = speciesData.egg_groups.map(egg => egg.name);
-  const about = speciesData.flavor_text_entries.filter(species => species.language.name === "en")
-                                                .map(species => species.flavor_text.replace(/(\r\n|\n|\r|\f)/gm,""))
-                                                .join("");
+  const about = speciesData.flavor_text_entries.filter(species => species.language.name === "en")[0].flavor_text
+                                            
   const types = pokemonData.types.map(t => t.type.name);
   const pokemonInfo = {
       id: pokemonData.id,
