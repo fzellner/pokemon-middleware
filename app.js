@@ -54,9 +54,10 @@ const fetchPokemonData = async (pokemonId) => {
   const pokemonData = await pokemonResponse.json();
   const speciesResponse = await fetch(pokemonData.species.url);
   const speciesData = await speciesResponse.json();
+  const evolutionResponse = await fetch(speciesData.evolution_chain.url)
+  const evolutionData = await evolutionResponse.json()
   const typeResponse = await fetch(pokemonData.types[0].type.url);
   const typeData = await typeResponse.json();
-
   const speciesName = speciesData.genera.find(g => g.language.name === "en").genus;
   const weight = (pokemonData.weight * 0.1).toFixed(2) + "kg";
   const height = (pokemonData.height * 0.1).toFixed(2) + "m";
@@ -71,8 +72,8 @@ const fetchPokemonData = async (pokemonId) => {
   const weakness = buildWeaknessData(typeData);
   const eggGroup = speciesData.egg_groups.map(egg => egg.name);
   const about = speciesData.flavor_text_entries.filter(species => species.language.name === "en")[0].flavor_text.replace(/(\r\n|\n|\r|\f)/gm,"")
-                                               
   const types = pokemonData.types.map(t => t.type.name);
+  const evolution = await getEvolutionChain(evolutionData.chain)
   const pokemonInfo = {
       id: pokemonData.id,
       name: pokemonData.name,
@@ -91,7 +92,8 @@ const fetchPokemonData = async (pokemonId) => {
       habitat: speciesData.habitat.name,
       capture_rate: speciesData.capture_rate,
       types:types,
-      image: pokemonData.sprites.other['official-artwork'].front_default
+      image: pokemonData.sprites.other['official-artwork'].front_default,
+      evolution: evolution
   };
   return pokemonInfo;
 };
@@ -107,6 +109,35 @@ app.get("/pokemon/:id", async (req, res, next) => {
       next(err);
   }
 });
+
+  async function getEvolutionChain(chain) {
+    const evolutionChain = [];
+  
+    const pokemonName = chain.species.name;
+    const evolutionLevel = chain.evolution_details.length > 0 ? chain.evolution_details[0].min_level : null;
+
+    const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonName}`);
+    const responseData = await response.json();
+    const officialArtworkUrl = responseData.sprites.other['official-artwork'].front_default;
+     
+    
+     const pokemonInfo = {
+        name: pokemonName,
+        evolutionLevel: evolutionLevel,
+        image: officialArtworkUrl
+      }
+ 
+    evolutionChain.push(pokemonInfo);
+  
+    if (chain.evolves_to && chain.evolves_to.length > 0) {
+      const nextChains = chain.evolves_to;
+      const nextPromises = nextChains.map(nextChain => getEvolutionChain(nextChain));
+      const nextEvolutions = await Promise.all(nextPromises);
+      evolutionChain.push(...nextEvolutions.flat());
+    }
+  
+    return evolutionChain;
+  }
 
 /* app.get("/pokemon", async (req, response, next) => {
     const data = await fetch('http://pokeapi.co/api/v2/pokemon?limit=5').then(res => res.json());
