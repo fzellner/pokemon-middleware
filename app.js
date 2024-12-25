@@ -10,6 +10,15 @@ var app = express()
 
 const hostname = 'http://pokeapi.co/api/v2'
 const path = '/pokemon?limit=5'
+const generations = [
+  { gen: 1, range: [1, 151] },
+  { gen: 2, range: [152, 251] },
+  { gen: 3, range: [252, 386] },
+  { gen: 4, range: [387, 493] },
+  { gen: 5, range: [494, 649] },
+  { gen: 6, range: [650, 721] }
+];
+
 
 // Create a separate async function to fetch the Pokemon data
 async function getPokemonData(offset, limit) {
@@ -34,6 +43,14 @@ async function getPokemonData(offset, limit) {
   return { data: result };
 }
 
+function getGeneration(pokemonNumber) {
+  const generation = generations.find(g => pokemonNumber >= g.range[0] && pokemonNumber <= g.range[1]);
+  return generation ? generation.gen : -1;
+}
+
+
+
+
 // Use async/await syntax in the route handler
 app.get('/pokemon', async (req, res, next) => {
   const offset = req.query.offset || 0;
@@ -47,11 +64,65 @@ app.get('/pokemon', async (req, res, next) => {
   }
 });
 
+app.get('/all', async (req, res) => {
+  try {
+    const allPokemonData = await getAllPokemonData();
+    if (allPokemonData.error) {
+      return res.status(500).json({ error: allPokemonData.error });
+    }
+    res.json(allPokemonData);
+  } catch (error) {
+    console.error("Error in API endpoint:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+
+async function getAllPokemonData() {
+  const baseURL = `https://pokeapi.co/api/v2/pokemon?offset=0&limit=721`;
+  
+  try {
+    // Obter a lista de Pokémon com URL básica
+    const data = await fetch(baseURL).then((res) => res.json());
+
+    // Usar Promise.all para processar todas as requisições de forma assíncrona
+    const result = await Promise.all(
+      data.results.map(async (pokemon) => {
+        try {
+          // Extrair ID do Pokémon da URL
+          console.log(pokemon);
+          const pokemonId = pokemon.url.split('/').filter(Boolean).pop();
+
+          // Buscar informações detalhadas do Pokémon
+          const pokemonData = await fetchPokemonData(pokemon.name)
+
+          if (!pokemonData) {
+            throw new Error(`Failed to fetch detailed data for Pokémon: ${pokemon.name}`);
+          }
+
+          // Construir o objeto do Pokémon
+            return pokemonData
+        } catch (error) {
+          console.error(`Error processing Pokémon ${pokemon.name}:`, error);
+          return null; // Ignorar Pokémon que falharem
+        }
+      })
+    );
+
+    // Filtrar resultados nulos caso algum Pokémon falhe
+    return { result: result.filter((pokemon) => pokemon !== null) };
+  } catch (error) {
+    console.error("Error fetching Pokémon list:", error);
+    return { data: [], error: "Failed to fetch Pokémon data" };
+  }
+}
+
 
 
 const fetchPokemonData = async (pokemonId) => {
-  const pokemonResponse = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonId}`);
-  const pokemonData = await pokemonResponse.json();
+  console.log("fetching data for")
+  const pokemonResponse = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonId}`).then((res) => res.json());
+  const pokemonData = pokemonResponse;
   const speciesResponse = await fetch(pokemonData.species.url);
   const speciesData = await speciesResponse.json();
   const evolutionResponse = await fetch(speciesData.evolution_chain.url)
@@ -59,8 +130,8 @@ const fetchPokemonData = async (pokemonId) => {
   const typeResponse = await fetch(pokemonData.types[0].type.url);
   const typeData = await typeResponse.json();
   const speciesName = speciesData.genera.find(g => g.language.name === "en").genus;
-  const weight = (pokemonData.weight * 0.1).toFixed(2) + "kg";
-  const height = (pokemonData.height * 0.1).toFixed(2) + "m";
+  const weight = (pokemonData.weight * 0.1).toFixed(2) + " kg";
+  const height = (pokemonData.height * 0.1).toFixed(2) + " m";
   const abilities = pokemonData.abilities.map(a => {
       if (a.is_hidden) {
           return `${a.ability.name} (hidden)`;
@@ -75,26 +146,28 @@ const fetchPokemonData = async (pokemonId) => {
   const types = pokemonData.types.map(t => t.type.name);
   const evolution = await getEvolutionChain(evolutionData.chain)
   const pokemonInfo = {
-      id: pokemonData.id,
-      name: pokemonData.name,
-      about: about,
-      pokedexData: {
-          speciesName: speciesName,
-          weight: weight,
-          height: height,
-          abilities: abilities
-      },
-      stats: stats,
-      weakness: weakness,
-      shape: speciesData.shape.name,
-      growthRate: speciesData.growth_rate.name,
-      eggGroup: eggGroup,
-      habitat: speciesData.habitat.name,
-      capture_rate: speciesData.capture_rate,
-      types:types,
-      image: pokemonData.sprites.other['official-artwork'].front_default,
-      evolution: evolution
+    id: pokemonData?.id ?? null,
+    name: pokemonData?.name ?? 'Unknown',
+    about: about ?? 'No information available',
+    pokedexData: {
+      speciesName: speciesName ?? 'Unknown',
+      weight: weight ?? 0,
+      height: height ?? 0,
+      abilities: abilities ?? [],
+    },
+    stats: stats ?? [],
+    weakness: weakness ?? [],
+    shape: speciesData?.shape?.name ?? 'Unknown',
+    growthRate: speciesData?.growth_rate?.name ?? 'Unknown',
+    eggGroup: eggGroup ?? [],
+    habitat: speciesData?.habitat?.name ?? 'Unknown',
+    capture_rate: speciesData?.capture_rate ?? 0,
+    types: types ?? [],
+    image: pokemonData?.sprites?.other?.['official-artwork']?.front_default ?? 'No image available',
+    evolution: evolution ?? 'Unknown',
+    generation: getGeneration(pokemonData?.id ?? 999) ?? 'Unknown',
   };
+  
   return pokemonInfo;
 };
 
